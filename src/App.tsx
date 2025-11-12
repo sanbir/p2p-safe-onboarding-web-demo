@@ -22,7 +22,7 @@ function App() {
   const { disconnect } = useDisconnect()
   const { switchChainAsync } = useSwitchChain()
   const { data: walletClient, refetch: refetchWalletClient } = useWalletClient()
-  const publicClient = usePublicClient()
+  const rawPublicClient = usePublicClient()
   const chainId = useChainId()
   const isOnBase = chainId === base.id
 
@@ -43,6 +43,36 @@ function App() {
     }),
     [],
   )
+
+  const publicClient = useMemo(() => {
+    if (!rawPublicClient) {
+      return rawPublicClient
+    }
+    return new Proxy(rawPublicClient, {
+      get(target, prop, receiver) {
+        if (prop === 'readContract') {
+          return async (...args: Parameters<typeof target.readContract>) => {
+            try {
+              return await target.readContract(...args)
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error)
+              if (message.includes('returned no data')) {
+                const patchedError = new Error(`ContractFunctionZeroDataError: ${message}`)
+                patchedError.name = 'ContractFunctionZeroDataError'
+                throw patchedError
+              }
+              throw error
+            }
+          }
+        }
+        const value = Reflect.get(target, prop, receiver)
+        if (typeof value === 'function') {
+          return value.bind(target)
+        }
+        return value
+      },
+    }) as typeof rawPublicClient
+  }, [rawPublicClient])
 
   const handleConnect = useCallback(
     (connectorId: string) => {
