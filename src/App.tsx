@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useState } from 'react'
 import {
   useAccount,
   useChainId,
@@ -9,8 +9,7 @@ import {
   useWalletClient,
 } from 'wagmi'
 import type { DeploymentResult } from '@p2p-org/safe-onboarding-sdk'
-import { OnboardingClient, constants } from '@p2p-org/safe-onboarding-sdk'
-import { getAddress } from 'viem'
+import { OnboardingClient } from '@p2p-org/safe-onboarding-sdk'
 import { base } from 'viem/chains'
 import './App.css'
 
@@ -29,20 +28,6 @@ function App() {
   const [onboardingPhase, setOnboardingPhase] = useState<OnboardingPhase>('idle')
   const [onboardingError, setOnboardingError] = useState<string | null>(null)
   const [deploymentResult, setDeploymentResult] = useState<DeploymentResult | null>(null)
-
-  const normalizedAddresses = useMemo(
-    () => ({
-      p2pAddress: getAddress(constants.P2P_ADDRESS),
-      p2pSuperformProxyFactoryAddress: getAddress(constants.P2P_SUPERFORM_PROXY_FACTORY_ADDRESS),
-      rolesMasterCopyAddress: getAddress(constants.ROLES_MASTER_COPY_ADDRESS),
-      rolesIntegrityLibraryAddress: getAddress(constants.ROLES_INTEGRITY_LIBRARY_ADDRESS),
-      rolesPackerLibraryAddress: getAddress(constants.ROLES_PACKER_LIBRARY_ADDRESS),
-      safeSingletonAddress: getAddress(constants.SAFE_SINGLETON_ADDRESS),
-      safeProxyFactoryAddress: getAddress(constants.SAFE_PROXY_FACTORY_ADDRESS),
-      safeMultiSendCallOnlyAddress: getAddress(constants.SAFE_MULTI_SEND_CALL_ONLY_ADDRESS),
-    }),
-    [],
-  )
 
   const handleConnect = useCallback(
     (connectorId: string) => {
@@ -112,26 +97,16 @@ function App() {
         throw new Error('Wallet client must have an active account.')
       }
 
-      const baseBoundWalletClient = {
-        ...activeWalletClient,
-        chain: base,
-        getChainId: async () => base.id,
-        account,
-      } as typeof activeWalletClient
-
       const onboarding = new OnboardingClient({
-        walletClient: baseBoundWalletClient,
+        walletClient: activeWalletClient,
         publicClient,
-        ...normalizedAddresses,
         feeConfigFetcher: async () => ({
           clientBasisPointsOfDeposit: 0,
           clientBasisPointsOfProfit: 9700,
         }),
       })
 
-      const result = await onboarding.onboardClient({
-        clientAddress: address,
-      })
+      const result = await onboarding.onboardClient()
 
       setDeploymentResult(result)
       setOnboardingPhase('success')
@@ -141,7 +116,7 @@ function App() {
       setOnboardingError(message)
       setOnboardingPhase('error')
     }
-  }, [address, normalizedAddresses, publicClient, refetchWalletClient, switchChainAsync, walletClient])
+  }, [publicClient, refetchWalletClient, switchChainAsync, walletClient])
 
   return (
     <div className="app">
