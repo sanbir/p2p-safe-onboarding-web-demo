@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@p2p-org/safe-onboarding-sdk": "1.0.6",
+    "@p2p-org/safe-onboarding-sdk": "1.0.9",
     "@tanstack/react-query": "^5.90.7",
     "@walletconnect/ethereum-provider": "^2.23.0",
     "react": "^19.2.0",

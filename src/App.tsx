@@ -43,6 +43,7 @@ function App() {
   const [transferResult, setTransferResult] = useState<TransferAssetResult | null>(null)
   const [transferBackResult, setTransferBackResult] = useState<TransferAssetResult | null>(null)
   const [transferBackSafeAddress, setTransferBackSafeAddress] = useState<string>('')
+  const [tokensToApprove, setTokensToApprove] = useState<string>('')
   const [transferAddress, setTransferAddress] = useState<string>('')
   const [transferAmount, setTransferAmount] = useState<string>('')
   const [transferBackAddress, setTransferBackAddress] = useState<string>('')
@@ -145,6 +146,7 @@ function App() {
     setTransferBackPhase('idle')
     setTransferBackError(null)
     setTransferBackResult(null)
+    setTokensToApprove('')
     setSafeResult(null)
 
     try {
@@ -179,6 +181,19 @@ function App() {
       return
     }
 
+    const tokens = tokensToApprove
+      .split(/[\s,]+/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+    const invalidToken = tokens.find(
+      (token) => !token.startsWith('0x') || token.length !== 42,
+    )
+    if (invalidToken) {
+      setPermissionsError(`Invalid token address: ${invalidToken}`)
+      setPermissionsPhase('error')
+      return
+    }
+
     setActiveStep('permissions')
     setPermissionsPhase('running')
     setPermissionsError(null)
@@ -199,6 +214,7 @@ function App() {
 
       const result = await onboarding.setPermissions({
         safeAddress: safeResult.safeAddress,
+        tokensToApprove: tokens as Address[],
         multiSendCallOnlyAddress: safeResult.multiSendCallOnly,
       })
       setPermissionsResult(result)
@@ -210,7 +226,7 @@ function App() {
     } finally {
       setActiveStep(null)
     }
-  }, [ensureWalletOnBase, feeConfigFetcher, publicClient, safeResult])
+  }, [ensureWalletOnBase, feeConfigFetcher, publicClient, safeResult, tokensToApprove])
 
   const handleTransfer = useCallback(async () => {
     if (!publicClient) {
@@ -464,6 +480,19 @@ function App() {
             <div>
               <p className="step__title">2. Set permissions</p>
               <p className="step__desc">Deploys the Roles module and enables it on the Safe.</p>
+              <div className="form">
+                <label className="form__label" htmlFor="tokensToApprove">
+                  Tokens to approve (comma or space separated)
+                </label>
+                <input
+                  id="tokensToApprove"
+                  className="form__input"
+                  placeholder="0x... (optional; leave empty to skip approvals)"
+                  value={tokensToApprove}
+                  onChange={(event) => setTokensToApprove(event.target.value)}
+                  autoComplete="off"
+                />
+              </div>
             </div>
             <button
               type="button"
