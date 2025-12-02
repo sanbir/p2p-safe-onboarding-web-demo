@@ -33,15 +33,21 @@ function App() {
   const [deployPhase, setDeployPhase] = useState<StepPhase>('idle')
   const [permissionsPhase, setPermissionsPhase] = useState<StepPhase>('idle')
   const [transferPhase, setTransferPhase] = useState<StepPhase>('idle')
+  const [transferBackPhase, setTransferBackPhase] = useState<StepPhase>('idle')
   const [deployError, setDeployError] = useState<string | null>(null)
   const [permissionsError, setPermissionsError] = useState<string | null>(null)
   const [transferError, setTransferError] = useState<string | null>(null)
+  const [transferBackError, setTransferBackError] = useState<string | null>(null)
   const [safeResult, setSafeResult] = useState<DeploySafeResult | null>(null)
   const [permissionsResult, setPermissionsResult] = useState<SetPermissionsResult | null>(null)
   const [transferResult, setTransferResult] = useState<TransferAssetResult | null>(null)
+  const [transferBackResult, setTransferBackResult] = useState<TransferAssetResult | null>(null)
+  const [transferBackSafeAddress, setTransferBackSafeAddress] = useState<string>('')
   const [transferAddress, setTransferAddress] = useState<string>('')
   const [transferAmount, setTransferAmount] = useState<string>('')
-  const [activeStep, setActiveStep] = useState<'deploy' | 'permissions' | 'transfer' | null>(null)
+  const [transferBackAddress, setTransferBackAddress] = useState<string>('')
+  const [transferBackAmount, setTransferBackAmount] = useState<string>('')
+  const [activeStep, setActiveStep] = useState<'deploy' | 'permissions' | 'transfer' | 'transferBack' | null>(null)
 
   const handleConnect = useCallback(
     (connectorId: string) => {
@@ -136,6 +142,9 @@ function App() {
     setTransferPhase('idle')
     setTransferError(null)
     setTransferResult(null)
+    setTransferBackPhase('idle')
+    setTransferBackError(null)
+    setTransferBackResult(null)
     setSafeResult(null)
 
     try {
@@ -176,6 +185,9 @@ function App() {
     setTransferPhase('idle')
     setTransferError(null)
     setTransferResult(null)
+    setTransferBackPhase('idle')
+    setTransferBackError(null)
+    setTransferBackResult(null)
 
     try {
       const activeWalletClient = await ensureWalletOnBase()
@@ -239,9 +251,9 @@ function App() {
         feeConfigFetcher,
       })
 
-      const result = await onboarding.transferAsset({
+      const result = await onboarding.transferAssetFromCallerToSafe({
         safeAddress: safeResult.safeAddress,
-        address: tokenAddress,
+        assetAddress: tokenAddress,
         amount,
       })
       setTransferResult(result)
@@ -260,6 +272,74 @@ function App() {
     safeResult?.safeAddress,
     transferAddress,
     transferAmount,
+  ])
+
+  const handleTransferBack = useCallback(async () => {
+    if (!publicClient) {
+      setTransferBackError('Public client not available.')
+      setTransferBackPhase('error')
+      return
+    }
+
+    const safeAddressInput = transferBackSafeAddress.trim() as Address
+    const tokenAddress = transferBackAddress.trim() as Address
+    const amount = transferBackAmount.trim()
+
+    if (
+      !safeAddressInput ||
+      !safeAddressInput.startsWith('0x') ||
+      safeAddressInput.length !== 42
+    ) {
+      setTransferBackError('Enter a valid Safe address.')
+      setTransferBackPhase('error')
+      return
+    }
+
+    if (!tokenAddress || !tokenAddress.startsWith('0x') || tokenAddress.length !== 42) {
+      setTransferBackError('Enter a valid token address.')
+      setTransferBackPhase('error')
+      return
+    }
+
+    if (!amount) {
+      setTransferBackError('Enter an amount (integer or hex string).')
+      setTransferBackPhase('error')
+      return
+    }
+
+    setActiveStep('transferBack')
+    setTransferBackPhase('running')
+    setTransferBackError(null)
+
+    try {
+      const activeWalletClient = await ensureWalletOnBase()
+      const onboarding = new OnboardingClient({
+        walletClient: activeWalletClient,
+        publicClient,
+        feeConfigFetcher,
+      })
+
+      const result = await onboarding.transferAssetFromSafeToSafeOwner({
+        safeAddress: safeAddressInput,
+        assetAddress: tokenAddress,
+        amount,
+      })
+      setTransferBackResult(result)
+      setTransferBackPhase('success')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Token transfer failed.'
+      setTransferBackError(message)
+      setTransferBackPhase('error')
+    } finally {
+      setActiveStep(null)
+    }
+  }, [
+    ensureWalletOnBase,
+    feeConfigFetcher,
+    publicClient,
+    transferBackSafeAddress,
+    transferBackAddress,
+    transferBackAmount,
   ])
 
   return (
@@ -472,6 +552,76 @@ function App() {
           )}
           {transferPhase === 'error' && transferError && <p className="app__error">{transferError}</p>}
           {!safeResult && <p className="app__hint">Deploy a Safe first to fund it.</p>}
+        </div>
+
+        <div className="step">
+          <div className="step__header">
+            <div>
+              <p className="step__title">4. Transfer tokens to owner</p>
+              <p className="step__desc">
+                Send ERC-20s from any deployed Safe back to its single owner.
+              </p>
+            </div>
+          </div>
+          <div className="form">
+            <label className="form__label" htmlFor="safeBackAddress">
+              Safe address
+            </label>
+            <input
+              id="safeBackAddress"
+              className="form__input"
+              placeholder="0x..."
+              value={transferBackSafeAddress}
+              onChange={(event) => setTransferBackSafeAddress(event.target.value)}
+              autoComplete="off"
+            />
+            <label className="form__label" htmlFor="tokenBackAddress">
+              Token address
+            </label>
+            <input
+              id="tokenBackAddress"
+              className="form__input"
+              placeholder="0x..."
+              value={transferBackAddress}
+              onChange={(event) => setTransferBackAddress(event.target.value)}
+              autoComplete="off"
+            />
+            <label className="form__label" htmlFor="tokenBackAmount">
+              Amount (integer or hex string)
+            </label>
+            <input
+              id="tokenBackAmount"
+              className="form__input"
+              placeholder="e.g. 1000000 for 1 USDC (6 decimals)"
+              value={transferBackAmount}
+              onChange={(event) => setTransferBackAmount(event.target.value)}
+              autoComplete="off"
+            />
+            <div className="button-group">
+              <button
+                type="button"
+                className="button"
+                onClick={handleTransferBack}
+                disabled={!canInteract || activeStep === 'transferBack'}
+              >
+                {transferBackPhase === 'running' ? 'Transferring...' : 'Transfer to owner'}
+              </button>
+            </div>
+          </div>
+          {transferBackPhase === 'success' && transferBackResult && (
+            <div className="status status--success">
+              <span className="status__label">Tokens sent to owner</span>
+              <p className="status__hint">
+                Tx: <code>{transferBackResult.transactionHash as Hex}</code>
+              </p>
+            </div>
+          )}
+          {transferBackPhase === 'error' && transferBackError && (
+            <p className="app__error">{transferBackError}</p>
+          )}
+          {transferBackPhase === 'running' && (
+            <p className="app__hint">This step submits a Safe transaction. Confirm it in your wallet.</p>
+          )}
         </div>
 
         {isConnected && !isOnBase && (
