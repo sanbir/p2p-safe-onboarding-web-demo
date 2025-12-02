@@ -116,7 +116,7 @@ function App() {
 
   const feeConfigFetcher = useCallback(
     async () => ({
-      clientBasisPointsOfDeposit: 0,
+      clientBasisPointsOfDeposit: 10_000,
       clientBasisPointsOfProfit: 9700,
     }),
     [],
