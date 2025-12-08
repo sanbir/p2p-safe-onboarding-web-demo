@@ -29,11 +29,14 @@ Run the development server:
 npm run dev
 ```
 
-Then open the app, connect a wallet, and click **Onboard**. The sdk prompts for two transactions. On success the UI shows:
+Then open the app and follow the steps:
 
-- Safe address
-- Roles address
-- Predicted P2pSuperformProxy address
+1. **Deploy Safe**
+2. **Set permissions** (optionally enter tokens to approve for the proxy)
+3. **Transfer tokens to Safe** (ERC-20 transfer from caller to Safe)
+4. **Transfer tokens to owner** (ERC-20 transfer from Safe back to its owner; accepts an existing Safe address)
+
+On success the UI shows Safe address, Roles address, and predicted P2pSuperformProxy address.
 
 ## Building
 
